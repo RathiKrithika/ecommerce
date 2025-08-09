@@ -1,0 +1,65 @@
+name: Build, Test & Deploy to EC2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    name: Build & Test on Build EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup SSH for Build Server
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_BUILD_KEY }}
+
+      - name: Build & Test Remotely
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_BUILD_USER }}@${{ secrets.EC2_BUILD_HOST }} << 'EOF'
+            cd ~/ecommerce
+            git pull origin main
+            mvn --batch-mode --update-snapshots verify
+            mkdir -p staging
+            cp target/ecommerce-1.0-SNAPSHOT.jar staging/
+            ls -l staging/
+          EOF
+
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecommerce-jars
+          path: ./staging/
+
+  deploy:
+    name: Deploy to Deploy EC2
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Built JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: ecommerce-jars
+          path: ./staging/
+
+      - name: Setup SSH for Deploy Server
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_DEPLOY_KEY }}
+
+      - name: Transfer JAR to Deploy EC2
+        run: |
+          scp -o StrictHostKeyChecking=no ./staging/ecommerce-1.0-SNAPSHOT.jar ${{ secrets.EC2_DEPLOY_USER }}@${{ secrets.EC2_DEPLOY_HOST }}:~/ecommerce/
+
+      - name: Start Application on Deploy EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_DEPLOY_USER }}@${{ secrets.EC2_DEPLOY_HOST }} << 'EOF'
+            cd ~/ecommerce
+            pkill -f 'java -jar ecommerce-1.0-SNAPSHOT.jar' || true
+            nohup java -jar ecommerce-1.0-SNAPSHOT.jar > app.log 2>&1 &
+            echo "Application deployed successfully."
+          EOF
