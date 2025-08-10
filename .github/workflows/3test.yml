@@ -1,0 +1,35 @@
+name: 3Test
+
+on:
+  workflow_call:
+    inputs:
+      HOSTNAME:
+        required: true
+        type: string
+      USER_NAME:
+        required: true
+        type: string
+    secrets:
+      PRIVATE_KEY:
+        required: true
+
+jobs:
+  test-jar:
+    name: Test on EC2
+    runs-on: ubuntu-latest
+    environment: Build Environment
+    steps:
+      - name: Save SSH key to file
+        run: |
+          echo "${{ secrets.PRIVATE_KEY }}" | tr -d '\r' > private_key
+          chmod 600 private_key
+
+      - name: Run Tests Remotely
+        run: |
+          ssh -o StrictHostKeyChecking=no -i private_key ${{ inputs.USER_NAME }}@${{ inputs.HOSTNAME }} << 'EOF'
+            cd ~/ecommerce
+            mvn test
+          EOF
+
+      - name: Cleanup SSH key
+        run: rm -f private_key
