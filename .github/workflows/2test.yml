@@ -1,4 +1,4 @@
-name: 1Test
+name: 2Test
 
 on:
   workflow_call:
@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Save SSH key to file
         run: |
-          echo "${{ inputs.PRIVATE_KEY }}" > private_key
+          echo "${{ inputs.PRIVATE_KEY }}" | tr -d '\r' > private_key
           chmod 600 private_key
 
       - name: Run Tests Remotely
