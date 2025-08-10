@@ -1,0 +1,42 @@
+name: 1Build and Test
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    name: Build on EC2
+    runs-on: ubuntu-latest
+    environment: Build Environment
+    outputs:
+      hostname: ${{ vars.EC2_UBUNTU_HOST }}
+      username: ${{ vars.EC2_UBUNTU_USERNAME }}
+      private_key: ${{ secrets.EC2_UBUNTU_KEY }}
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Save SSH key to file
+        run: |
+          echo "${{ secrets.EC2_UBUNTU_KEY }}" > private_key
+          chmod 600 private_key
+          
+      - name: Build JAR Remotely
+        run: |
+          ssh -o StrictHostKeyChecking=no -i private_key ${{ vars.EC2_UBUNTU_USERNAME }}@${{ vars.EC2_UBUNTU_HOST }} << 'EOF'
+            cd ~/ecommerce
+            git pull origin main
+            mvn --batch-mode --update-snapshots package
+            mkdir -p staging
+            cp target/ecommerce-1.0-SNAPSHOT.jar staging/
+            ls -l staging/
+          EOF
+
+      - name: Cleanup SSH key
+        run: rm -f private_key
+
+  test:
+    needs: build
+    uses: ./.github/workflows/test.yml
+    with:
+      HOSTNAME: ${{ needs.build.outputs.hostname }}
+      USER_NAME: ${{ needs.build.outputs.username }}
+      PRIVATE_KEY: ${{ needs.build.outputs.private_key }}
