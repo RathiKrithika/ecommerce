@@ -34,7 +34,7 @@ jobs:
 
   test:
     needs: build
-    uses: ./.github/workflows/2test.yml
+    uses: ./.github/workflows/3test.yml
     with:
       HOSTNAME: ${{ needs.build.outputs.hostname }}
       USER_NAME: ${{ needs.build.outputs.username }}
