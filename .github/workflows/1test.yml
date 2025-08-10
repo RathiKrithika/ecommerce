@@ -1,0 +1,35 @@
+name: 1Test
+
+on:
+  workflow_call:
+    inputs:
+      HOSTNAME:
+        required: true
+        type: string
+      USER_NAME:
+        required: true
+        type: string
+      PRIVATE_KEY:
+        required: true
+        type: string
+
+jobs:
+  test-jar:
+    name: Test on EC2
+    runs-on: ubuntu-latest
+    environment: Build Environment
+    steps:
+      - name: Save SSH key to file
+        run: |
+          echo "${{ inputs.PRIVATE_KEY }}" > private_key
+          chmod 600 private_key
+
+      - name: Run Tests Remotely
+        run: |
+          ssh -o StrictHostKeyChecking=no -i private_key ${{ inputs.USER_NAME }}@${{ inputs.HOSTNAME }} << 'EOF'
+            cd ~/ecommerce
+            mvn test
+          EOF
+
+      - name: Cleanup SSH key
+        run: rm -f private_key
