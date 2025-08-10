@@ -1,0 +1,31 @@
+name: Build
+
+on: workflow_dispatch
+
+jobs:
+  Deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Build & Deploy
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_BUILD_KEY }}
+          HOSTNAME: ${{ vars.BUILD_HOST }}
+          USER_NAME: ${{ vars.BUILD_USER }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          
+          ssh -o StrictHostKeyChecking=no -i private_key ${USER_NAME}@${HOSTNAME} << 'EOF'
+            cd ~/ecommerce
+            git pull origin main
+            mvn --batch-mode --update-snapshots verify
+            mkdir -p staging
+            cp target/ecommerce-1.0-SNAPSHOT.jar staging/
+            ls -l staging/
+          EOF
+          
+          
