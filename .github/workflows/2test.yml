@@ -9,10 +9,10 @@ on:
       USER_NAME:
         required: true
         type: string
-        
-    secrets:    
+          
       PRIVATE_KEY:
         required: true
+        type: string
         
 
 jobs:
